@@ -71,6 +71,11 @@ func main() {
 
 			// print the result
 			fmt.Printf("%s\n", tmp_url)
+
+			// also print the result with a trailing slash
+			if !strings.HasSuffix(tmp_url,"/") && !strings.Contains(strings.Join(path, "/"),".") {
+				fmt.Printf("%s\n", tmp_url + "/")
+			} 
 		}
 
 	}
