@@ -7,7 +7,7 @@ $ cat urls.txt
 https://www.example.com/foo/bar/baz/index.html
 https://example.org/hello/world/yolo.js
 
-$ cat urls.txt | vhosts
+$ cat urls.txt | vpaths
 https://www.example.com/foo/bar/baz/index.html
 https://www.example.com/foo/bar/baz/
 https://www.example.com/foo/bar/
