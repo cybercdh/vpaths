@@ -18,65 +18,71 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"net/url"
 	"os"
 	"strings"
 )
 
 func main() {
-
-	// take piped input
-	var input_urls io.Reader
-	input_urls = os.Stdin
-	sc := bufio.NewScanner(input_urls)
-
-	// check there were no errors reading stdin (unlikely)
-	if err := sc.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "[!]	failed to read input: %s\n", err)
-	}
+	sc := bufio.NewScanner(os.Stdin)
 
 	// keep track of urls we've seen
 	seen := make(map[string]bool)
 
 	for sc.Scan() {
-
-		// parse each url
-		_url := sc.Text()
-
-		if !strings.HasPrefix(_url, "http") {
-			continue
-		}
-
-		u, err := url.Parse(_url)
-		if err != nil {
-			continue
-		}
-
-		// split the paths from the parsed url
-		paths := strings.Split(u.Path, "/")
-
-		// iterate over the paths slice and print
-		for i := 0; i < len(paths); i++ {
-			path := paths[:len(paths)-i]
-			tmp_url := fmt.Sprintf(u.Scheme + "://" + u.Host + strings.Join(path, "/"))
-
-			// if we've seen the tmp_url already, keep moving
-			if _, ok := seen[tmp_url]; ok {
+		for _, p := range expand(sc.Text()) {
+			if seen[p] {
 				continue
 			}
-
-			// add to seen
-			seen[tmp_url] = true
-
-			// print the result
-			fmt.Printf("%s\n", tmp_url)
-
-			// also print the result with a trailing slash
-			if !strings.HasSuffix(tmp_url,"/") && !strings.Contains(strings.Join(path, "/"),".") {
-				fmt.Printf("%s\n", tmp_url + "/")
-			} 
+			seen[p] = true
+			fmt.Println(p)
 		}
-
 	}
+
+	// check there were no errors reading stdin (unlikely)
+	if err := sc.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "[!]\tfailed to read input: %s\n", err)
+		os.Exit(1)
+	}
+}
+
+// expand returns the URL itself followed by each parent path up to the host
+// root. Every parent is emitted with a trailing slash. The URL itself gets a
+// slash form too unless its last segment looks like a file (contains a dot).
+// Lines that are not absolute URLs are skipped. The path is kept as given
+// (percent-encoding intact) and any query string or fragment is dropped.
+func expand(line string) []string {
+	line = strings.TrimSpace(line)
+	if line == "" || !strings.Contains(line, "://") {
+		return nil
+	}
+	u, err := url.Parse(line)
+	if err != nil || u.Host == "" {
+		return nil
+	}
+	base := u.Scheme + "://" + u.Host
+	segs := strings.Split(u.EscapedPath(), "/")
+
+	var out []string
+	add := func(s string) {
+		for _, e := range out {
+			if e == s {
+				return
+			}
+		}
+		out = append(out, s)
+	}
+	for i := 0; i < len(segs); i++ {
+		p := strings.Join(segs[:len(segs)-i], "/")
+		add(base + p)
+		if strings.HasSuffix(p, "/") {
+			continue
+		}
+		last := segs[len(segs)-1-i]
+		if i == 0 && strings.Contains(last, ".") {
+			continue // a file, not a directory
+		}
+		add(base + p + "/")
+	}
+	return out
 }
